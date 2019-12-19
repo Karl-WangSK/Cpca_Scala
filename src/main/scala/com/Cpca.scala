@@ -51,7 +51,7 @@ object Cpca {
     val strings = Array("浙江温州瓯海区", "上海市浦东新区")
     val result: mutable.Seq[Cpca] = transform(strings)
     for (elem <- result) {
-      println(elem.getV("省") + "===" + elem.getV("市") + "====" + elem.getV("区"))
+      println(elem.getV("省") + "===" + elem.getV("市") + "===" + elem.getV("区"))
     }
   }
 
