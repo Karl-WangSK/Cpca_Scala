@@ -16,6 +16,7 @@ class Cpca {
   map.put("市", "")
   map.put("区", "")
 
+
   def setKV(k: String, v: String): Unit = {
     map.put(k, v)
   }
@@ -23,9 +24,7 @@ class Cpca {
   def getV(k: String) = {
     map(k)
   }
-}
 
-object Cpca {
   //    # 直辖市
   val munis = List("北京市", "天津市", "上海市", "重庆市")
   //自定义的区级到市级的映射,主要用于解决区重名问题,如果定义的映射在模块中已经存在，则会覆盖模块中自带的映射
@@ -41,19 +40,15 @@ object Cpca {
     "西湖区" -> "杭州市",
     "铁西区" -> "沈阳市"
   )
+
   var area_map: util.HashMap[String, (String, String, String)] = new util.HashMap[String, (String, String, String)]
   var city_map: util.HashMap[String, (String, String, String)] = new util.HashMap[String, (String, String, String)]
   var province_area_map: util.HashMap[(String, String), (String, String, String)] = new util.HashMap[(String, String), (String, String, String)]
   var latlng: util.HashMap[String, String] = new util.HashMap[String, String]()
   var province_map: util.HashMap[String, String] = new util.HashMap[String, String]
+  //加载字典
+  val dic:Boolean=load_dic()
 
-  def main(args: Array[String]): Unit = {
-    val strings = Array("浙江温州瓯海区", "上海市浦东新区")
-    val result: mutable.Seq[Cpca] = transform(strings)
-    for (elem <- result) {
-      println(elem.getV("省") + "===" + elem.getV("市") + "===" + elem.getV("区"))
-    }
-  }
 
   def is_munis(city_full_name: String) = {
     if (munis.contains(city_full_name)) {
@@ -69,6 +64,7 @@ object Cpca {
     _fill_city_map(city_map, strs)
     _fill_province_area_map(province_area_map, strs)
     (area_map, city_map, province_area_map, province_map, latlng)
+
 
   }
 
@@ -137,8 +133,7 @@ object Cpca {
                上海市/上海市/徐汇区
                福建省/泉州市/洛江区
     """
-
-  def transform(location_strs: String, umap: Map[String, String] = myumap, cut: Boolean = true, lookahead: Int = 8): String = {
+  def load_dic():Boolean={
     //加载词库
     val bufferarr = new ArrayBuffer[String]()
     val path: InputStream = Cpca.getClass.getClassLoader.getResourceAsStream("pca.csv")
@@ -148,90 +143,86 @@ object Cpca {
       val str: String = scanner.nextLine()
       _data_from_csv(str)
     }
-    val cpca: Cpca = _handle_one_record(location_strs, umap, cut, lookahead)
-    cpca.getV("省") + "/" + cpca.getV("市") + "/" + cpca.getV("区")
+    true
   }
 
-  def transform(location_arr: Array[String], umap: Map[String, String] = myumap, cut: Boolean = true, lookahead: Int = 8): mutable.Seq[Cpca] = {
-    //加载词库
-    val bufferarr = new ArrayBuffer[String]()
-    val path: InputStream = Cpca.getClass.getClassLoader.getResourceAsStream("pca.csv")
-    val scanner = new Scanner(path)
-    //将省市区做映射
-    while (scanner.hasNext()) {
-      val str: String = scanner.nextLine()
-      _data_from_csv(str)
-    }
-    val arr = new ArrayBuffer[Cpca]()
+  def clear_addr()={
+    map.put("省", "")
+    map.put("市", "")
+    map.put("区", "")
+  }
+
+  def transform(location_strs: String, umap: Map[String, String] = myumap, cut: Boolean = false, lookahead: Int = 8): String = {
+    _handle_one_record(location_strs, umap, cut, lookahead)
+    getV("省") + "/" + getV("市") + "/" + getV("区")
+  }
+
+
+  def transform_arr(location_arr: Array[String], umap: Map[String, String] = myumap, cut: Boolean = false, lookahead: Int = 8): mutable.Seq[String] = {
+    val arr = new ArrayBuffer[String]()
     for (elem <- location_arr) {
-      val cpca: Cpca = _handle_one_record(elem, umap, cut, lookahead)
-      arr += cpca
+      clear_addr()
+      _handle_one_record(elem, umap, cut, lookahead)
+      arr += getV("省") + "/" + getV("市") + "/" + getV("区")
     }
     arr
   }
-
 
   def _handle_one_record(addr: String, umap: Map[String, String], cut: Boolean, lookahead: Int) = {
     """处理一条记录"""
     //      # 空记录
     if (addr == "" || addr == null) {
-      val cpca = new Cpca()
-      cpca
+
     } else {
       //      # 地名提取
-      val cpca: Cpca = _extract_addr(addr, cut, lookahead)
-      _fill_city(cpca, umap)
-      _fill_province(cpca)
-      cpca
+      _extract_addr(addr, cut, lookahead)
+      _fill_city( umap)
+      _fill_province()
     }
-
   }
 
-  def _extract_addr(addr: String, cut: Boolean, lookhead: Int): Cpca = {
+  def _extract_addr(addr: String, cut: Boolean, lookhead: Int) = {
     if (cut) _jieba_extract(addr)
     else _full_text_extract(addr, lookhead)
   }
 
-  def _jieba_extract(addr: String): Cpca = {
-    val cpca = new Cpca()
+  def _jieba_extract(addr: String) = {
     import scala.collection.JavaConverters._
     val jieba = new JiebaSegmenter
     val strs: mutable.Seq[String] = jieba.sentenceProcess(addr).asScala
     for (elem <- strs) {
-      if (area_map.containsKey(elem)) cpca.map.put("区", area_map.get(elem)._3)
-      else if (city_map.containsKey(elem)) cpca.map.put("市", city_map.get(elem)._2)
-      else if (province_map.containsKey(elem)) cpca.map.put("省", province_map.get(elem))
+      if (area_map.containsKey(elem)) map.put("区", area_map.get(elem)._3)
+      else if (city_map.containsKey(elem)) map.put("市", city_map.get(elem)._2)
+      else if (province_map.containsKey(elem)) map.put("省", province_map.get(elem))
     }
-    cpca
   }
 
-  def _fill_province(result: Cpca) = {
+  def _fill_province() = {
     """填充省"""
-    if (result.getV("市") != "" && result.getV("省") == "" && city_map.containsKey(result.getV("市"))) {
-      result.setKV("省", city_map.get(result.getV("市"))._1)
+    if (getV("市") != "" && getV("省") == "" && city_map.containsKey(getV("市"))) {
+      setKV("省", city_map.get(getV("市"))._1)
     }
-    if (result.getV("市") == "" && result.getV("省") == "" && area_map.containsKey(result.getV("区"))) {
-      result.setKV("省", area_map.get(result.getV("区"))._1)
+    if (getV("市") == "" && getV("省") == "" && area_map.containsKey(getV("区"))) {
+      setKV("省", area_map.get(getV("区"))._1)
     }
   }
 
-  def _fill_city(cpca: Cpca, umap: Map[String, String]): Unit = {
+  def _fill_city( umap: Map[String, String]): Unit = {
     """填充市"""
-    if (cpca.getV("市") == "") {
+    if (getV("市") == "") {
       //      # 从 区 映射
-      if (cpca.getV("区") != "") {
-        if (area_map.containsKey(cpca.getV("区"))) cpca.setKV("市", area_map.get(cpca.getV("区"))._2)
-        if (umap.contains(cpca.getV("区"))) cpca.setKV("市", umap(cpca.getV("区")))
+      if (getV("区") != "") {
+        if (area_map.containsKey(getV("区"))) setKV("市", area_map.get(getV("区"))._2)
+        if (umap.contains(getV("区"))) setKV("市", umap(getV("区")))
       }
       //      # 从 省,区 映射
-      if (cpca.getV("区") != "" && cpca.getV("省") != "") {
-        if (province_area_map.containsKey((cpca.getV("省"), cpca.getV("区")))) cpca.setKV("市", province_area_map.get((cpca.getV("省"), cpca.getV("区")))._2)
+      if (getV("区") != "" && getV("省") != "") {
+        if (province_area_map.containsKey((getV("省"), getV("区")))) setKV("市", province_area_map.get((getV("省"), getV("区")))._2)
       }
     }
   }
 
   def _full_text_extract(addr: String, lookahead: Int) = {
-    val cpca = new Cpca
     //      # i为起始位置
     var i = 0
 
@@ -244,17 +235,17 @@ object Cpca {
           var elem = addr.substring(i, i + x)
           breakable {
             if (area_map.containsKey(elem)) {
-              cpca.map.put("区", area_map.get(elem)._3)
+              map.put("区", area_map.get(elem)._3)
               defer_fun = elem.length
               break()
             }
             else if (city_map.containsKey(elem)) {
-              cpca.map.put("市", city_map.get(elem)._2)
+              map.put("市", city_map.get(elem)._2)
               defer_fun = elem.length
               break()
             }
             else if (province_map.containsKey(elem)) {
-              cpca.map.put("省", province_map.get(elem))
+              map.put("省", province_map.get(elem))
               defer_fun = elem.length
               break()
             }
@@ -267,6 +258,16 @@ object Cpca {
         i += 1
       }
     }
-    cpca
+  }
+}
+
+object Cpca {
+  def main(args: Array[String]): Unit = {
+    val strings = Array( "上海市浦东新区","浙江省温州市瓯海区" )
+    val cpca = new Cpca()
+    val list: mutable.Seq[String] = cpca.transform_arr(strings)
+    for (elem <-list)  {
+      println(elem)
+    }
   }
 }
