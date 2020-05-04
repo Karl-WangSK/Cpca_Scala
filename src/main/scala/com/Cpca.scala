@@ -12,18 +12,6 @@ import scala.util.control.Breaks.{break, breakable}
 
 class Cpca {
   var map: mutable.HashMap[String, String] = new mutable.HashMap[String, String]()
-  map.put("省", "")
-  map.put("市", "")
-  map.put("区", "")
-
-
-  def setKV(k: String, v: String): Unit = {
-    map.put(k, v)
-  }
-
-  def getV(k: String) = {
-    map(k)
-  }
 
   //    # 直辖市
   val munis = List("北京市", "天津市", "上海市", "重庆市")
@@ -49,7 +37,6 @@ class Cpca {
   //加载字典
   val dic:Boolean=load_dic()
 
-
   def is_munis(city_full_name: String) = {
     if (munis.contains(city_full_name)) {
       city_full_name
@@ -64,8 +51,6 @@ class Cpca {
     _fill_city_map(city_map, strs)
     _fill_province_area_map(province_area_map, strs)
     (area_map, city_map, province_area_map, province_map, latlng)
-
-
   }
 
   def _fill_province_map(hashMap: util.HashMap[String, String], strs: Array[String]) = {
@@ -153,8 +138,9 @@ class Cpca {
   }
 
   def transform(location_strs: String, umap: Map[String, String] = myumap, cut: Boolean = false, lookahead: Int = 8): String = {
+    clear_addr()
     _handle_one_record(location_strs, umap, cut, lookahead)
-    getV("省") + "/" + getV("市") + "/" + getV("区")
+    map("省") + "/" + map("市") + "/" + map("区")
   }
 
 
@@ -163,7 +149,7 @@ class Cpca {
     for (elem <- location_arr) {
       clear_addr()
       _handle_one_record(elem, umap, cut, lookahead)
-      arr += getV("省") + "/" + getV("市") + "/" + getV("区")
+      arr += map("省") + "/" + map("市") + "/" + map("区")
     }
     arr
   }
@@ -199,25 +185,25 @@ class Cpca {
 
   def _fill_province() = {
     """填充省"""
-    if (getV("市") != "" && getV("省") == "" && city_map.containsKey(getV("市"))) {
-      setKV("省", city_map.get(getV("市"))._1)
+    if (map("市") != "" && map("省") == "" && city_map.containsKey(map("市"))) {
+      map.put("省", city_map.get(map("市"))._1)
     }
-    if (getV("市") == "" && getV("省") == "" && area_map.containsKey(getV("区"))) {
-      setKV("省", area_map.get(getV("区"))._1)
+    if (map("市") == "" && map("省") == "" && area_map.containsKey(map("区"))) {
+      map.put("省", area_map.get(map("区"))._1)
     }
   }
 
   def _fill_city( umap: Map[String, String]): Unit = {
     """填充市"""
-    if (getV("市") == "") {
+    if (map("市") == "") {
       //      # 从 区 映射
-      if (getV("区") != "") {
-        if (area_map.containsKey(getV("区"))) setKV("市", area_map.get(getV("区"))._2)
-        if (umap.contains(getV("区"))) setKV("市", umap(getV("区")))
+      if (map("区") != "") {
+        if (area_map.containsKey(map("区"))) map.put("市", area_map.get(map("区"))._2)
+        if (umap.contains(map("区"))) map.put("市", umap(map("区")))
       }
       //      # 从 省,区 映射
-      if (getV("区") != "" && getV("省") != "") {
-        if (province_area_map.containsKey((getV("省"), getV("区")))) setKV("市", province_area_map.get((getV("省"), getV("区")))._2)
+      if (map("区") != "" && map("省") != "") {
+        if (province_area_map.containsKey((map("省"), map("区")))) map.put("市", province_area_map.get((map("省"), map("区")))._2)
       }
     }
   }
@@ -262,12 +248,22 @@ class Cpca {
 }
 
 object Cpca {
-  def main(args: Array[String]): Unit = {
-    val strings = Array( "上海市浦东新区","浙江省温州市瓯海区" )
-    val cpca = new Cpca()
-    val list: mutable.Seq[String] = cpca.transform_arr(strings)
-    for (elem <-list)  {
-      println(elem)
+  /**
+    * 获取表中所有的地址信息
+    */
+  def get_dic()={
+    //加载词库
+    val bufferarr = new ArrayBuffer[String]()
+    val path: InputStream = Cpca.getClass.getClassLoader.getResourceAsStream("pca.csv")
+    val scanner = new Scanner(path)
+    //将表信息写入list
+    val addrList = new util.ArrayList[String]()
+    while (scanner.hasNext()) {
+      val str: String = scanner.nextLine()
+      addrList.add(str)
     }
+    addrList
   }
+
+
 }
